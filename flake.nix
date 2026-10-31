@@ -35,8 +35,12 @@
 
       formatter = forAllSystems (system: treefmt nixpkgs.legacyPackages.${system});
 
-      checks = forAllSystems (system: {
-        formatting = (treefmt nixpkgs.legacyPackages.${system}).check self;
-      });
+      checks = forAllSystems (
+        system:
+        lib.mapAttrs' (name: lib.nameValuePair "package-${name}") self.packages.${system}
+        // {
+          formatting = (treefmt nixpkgs.legacyPackages.${system}).check self;
+        }
+      );
     };
 }
