@@ -25,6 +25,19 @@
         };
     in
     {
+      nixosModules = {
+        composefs = ./nixos/modules/composefs.nix;
+        default = self.nixosModules.composefs;
+      };
+
+      nixosConfigurations.example = nixpkgs.lib.nixosSystem {
+        modules = [
+          self.nixosModules.default
+          ./examples/sealed-root.nix
+          { nixpkgs.hostPlatform = "x86_64-linux"; }
+        ];
+      };
+
       packages = forAllSystems (
         system:
         lib.packagesFromDirectoryRecursive {
