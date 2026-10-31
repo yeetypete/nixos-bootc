@@ -25,6 +25,14 @@
         };
     in
     {
+      packages = forAllSystems (
+        system:
+        lib.packagesFromDirectoryRecursive {
+          inherit (nixpkgs.legacyPackages.${system}) callPackage;
+          directory = ./pkgs;
+        }
+      );
+
       formatter = forAllSystems (system: treefmt nixpkgs.legacyPackages.${system});
 
       checks = forAllSystems (system: {
