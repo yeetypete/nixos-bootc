@@ -57,7 +57,7 @@ let
           systemd-repart --empty=require --dry-run=no --definitions=${repartDefinitions} /dev/vda
 
         mount --mkdir /dev/vda2 /mnt
-        cfsctl --repo /mnt/composefs init
+        cfsctl --repo /mnt/composefs init --algorithm ${boot.composefs.algorithm}
         cfsctl --repo /mnt/composefs oci pull --bootable oci:${system.build.composefsImage}:latest nixos
         # composefs-setup-root requires the deployment's state directory.
         mkdir -p /mnt/state/deploy/$(< ${system.build.composefsDigest})
@@ -109,7 +109,7 @@ in
 
       with subtest("The root is a transient overlay of the composefs image"):
         digest = Path("${system.build.composefsDigest}").read_text().strip()
-        t.assertIn(f"composefs.digest=v1-sha512-12:{digest}", machine.succeed("cat /proc/cmdline"))
+        t.assertIn(f"composefs.digest=v1-${lib.removePrefix "fsverity-" boot.composefs.algorithm}:{digest}", machine.succeed("cat /proc/cmdline"))
         t.assertEqual(machine.succeed("findmnt --noheadings --output FSTYPE,SOURCE /").split(), ["overlay", "transient"])
 
       with subtest("The UKI name matches the booted entry"):
