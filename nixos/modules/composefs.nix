@@ -58,8 +58,12 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    # NixOS mounts /etc itself.
-    boot.composefs.setupRoot.settings.etc.mount = lib.mkDefault "none";
+    boot.composefs.setupRoot.settings = {
+      # A tmpfs over the image, as NixOS writes to the root while booting.
+      root.transient = lib.mkDefault true;
+      # NixOS sets up /etc itself, in the transient root.
+      etc.mount = lib.mkDefault "none";
+    };
 
     boot.initrd.systemd = {
       storePaths = [ (lib.getExe cfg.setupRoot.package) ];
