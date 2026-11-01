@@ -104,6 +104,9 @@ in
       with subtest("The UKI name matches the booted entry"):
         t.assertIn("Current Entry: ${system.boot.loader.ukiFile}", machine.succeed("bootctl status"))
 
+      with subtest("The ESP is mounted at /boot"):
+        t.assertEqual(machine.succeed("bootctl --print-esp-path").strip(), "/boot")
+
       with subtest("The physical root with the repository is at /sysroot"):
         machine.succeed("test -d /sysroot/composefs/images")
 
