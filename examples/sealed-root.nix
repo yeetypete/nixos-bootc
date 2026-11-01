@@ -1,6 +1,11 @@
 {
   boot.composefs.enable = true;
 
+  # NOTE: This must increase with every image. The UKI is named after this
+  # version, and systemd-boot boots the image with the highest version name
+  # by default.
+  system.image.version = "1";
+
   # The system is immutable and must be updated by deploying a new image.
   nix.enable = false;
   system.switch.enable = false;
