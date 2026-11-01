@@ -65,7 +65,6 @@ in
 
   nodes.machine = {
     boot.composefs.enable = true;
-    boot.loader.grub.enable = false;
 
     virtualisation = {
       directBoot.enable = false;

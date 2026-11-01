@@ -58,6 +58,23 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # The image's UKI is the boot entry.
+    boot.loader.grub.enable = lib.mkDefault false;
+
+    # An immutable system.etc.overlay sets this placeholder itself.
+    #
+    # If possible, prefer setting `boot.kernelParams = [ "systemd.machine_id=firmware" ]`
+    # for a stable machine ID. Note that this depends on the firmware reporting
+    # a unique product UUID.
+    environment.etc.machine-id =
+      lib.mkIf (!(config.system.etc.overlay.enable && !config.system.etc.overlay.mutable))
+        (
+          lib.mkDefault {
+            text = "";
+            mode = "0444";
+          }
+        );
+
     boot.composefs.setupRoot.settings = {
       # A tmpfs over the image, as NixOS writes to the root while booting.
       root.transient = lib.mkDefault true;
