@@ -58,6 +58,12 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    warnings = lib.optional (config.system.image.version == null) ''
+      `system.image.version` must be set to a unique, increasing version for
+      each image. It determines the image's UKI name and which image
+      systemd-boot boots by default.
+    '';
+
     # The image's UKI is the boot entry.
     boot.loader.grub.enable = lib.mkDefault false;
 

@@ -101,6 +101,9 @@ in
         t.assertIn(f"composefs.digest=v1-sha512-12:{digest}", machine.succeed("cat /proc/cmdline"))
         t.assertEqual(machine.succeed("findmnt --noheadings --output FSTYPE,SOURCE /").split(), ["overlay", "transient"])
 
+      with subtest("The UKI name matches the booted entry"):
+        t.assertIn("Current Entry: ${system.boot.loader.ukiFile}", machine.succeed("bootctl status"))
+
       with subtest("The physical root with the repository is at /sysroot"):
         machine.succeed("test -d /sysroot/composefs/images")
 
