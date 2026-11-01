@@ -15,8 +15,12 @@ concurrency:
 
 jobs:
   check:
-    name: check
-    runs-on: ubuntu-26.04
+    name: check (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-26.04, ubuntu-26.04-arm]
     permissions:
       contents: read
     steps:
