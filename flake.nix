@@ -61,6 +61,10 @@
         lib.mapAttrs' (name: lib.nameValuePair "package-${name}") self.packages.${system}
         // {
           formatting = (treefmt nixpkgs.legacyPackages.${system}).check self;
+          vm-test = nixpkgs.legacyPackages.${system}.testers.runNixOSTest {
+            imports = [ ./nixos/tests/composefs.nix ];
+            defaults.imports = [ self.nixosModules.default ];
+          };
         }
       );
     };
