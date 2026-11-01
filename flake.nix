@@ -68,6 +68,7 @@
               ./examples/sealed-root.nix
             ];
           };
+          image = self.checks.${system}.vm-test.nodes.machine.system.build.composefsImage;
         }
       );
     };

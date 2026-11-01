@@ -41,4 +41,11 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Check the flake
-        run: nix flake check --print-build-logs
+        run: |
+          if [ -e /dev/kvm ]; then
+            nix flake check --print-build-logs
+          else
+            # The VM test needs KVM.
+            nix flake check --no-build
+            nix build --print-build-logs ".#checks.$(nix config show system).image"
+          fi
