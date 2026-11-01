@@ -49,6 +49,19 @@ in
       ];
     };
 
+    algorithm = lib.mkOption {
+      type = lib.types.enum [
+        "fsverity-sha256-12"
+        "fsverity-sha512-12"
+      ];
+      default = "fsverity-sha512-12";
+      description = ''
+        The fs-verity algorithm the image's composefs digest is computed with.
+        It must match the algorithm of the composefs repository the image is
+        deployed to (set when creating it with `cfsctl init --algorithm`).
+      '';
+    };
+
     setupRoot = {
       package = lib.mkPackageOption pkgs "composefs-setup-root" { };
 
@@ -163,7 +176,7 @@ in
         { nativeBuildInputs = [ cfg.package ]; }
         ''
           # The build's filesystem may lack fs-verity, which computing the digest doesn't need.
-          cfsctl --repo repo init --insecure
+          cfsctl --repo repo init --insecure --algorithm ${cfg.algorithm}
           cfsctl --repo repo oci pull oci:${intermediateImage}:latest nixos
           cfsctl --repo repo oci compute-id --bootable nixos > $out
         '';
@@ -179,7 +192,7 @@ in
           mkdir -p $out
           ukify build \
             --config=${config.boot.uki.configFile} \
-            --cmdline="${cmdline} composefs.digest=v1-sha512-12:$(< ${config.system.build.composefsDigest})" \
+            --cmdline="${cmdline} composefs.digest=v1-${lib.removePrefix "fsverity-" cfg.algorithm}:$(< ${config.system.build.composefsDigest})" \
             --output="$out/${ukiFile}"
         ''
       );
@@ -206,7 +219,7 @@ in
           umoci gc --layout $out
 
           # Adding the UKI must not change the image's digest.
-          cfsctl --repo repo init --insecure
+          cfsctl --repo repo init --insecure --algorithm ${cfg.algorithm}
           cfsctl --repo repo oci pull oci:$out:latest nixos
           [ "$(cfsctl --repo repo oci compute-id --bootable nixos)" = "$(< ${config.system.build.composefsDigest})" ]
         '';
