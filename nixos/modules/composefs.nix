@@ -65,6 +65,16 @@ in
       etc.mount = lib.mkDefault "none";
     };
 
+    boot.initrd.availableKernelModules = [
+      "loop"
+      "erofs"
+      "overlay"
+    ];
+
+    system.requiredKernelConfig = with config.lib.kernelConfig; [
+      (isEnabled "EROFS_FS")
+    ];
+
     boot.initrd.systemd = {
       storePaths = [ (lib.getExe cfg.setupRoot.package) ];
       contents."/usr/lib/composefs/setup-root-conf.toml".source =
