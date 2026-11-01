@@ -63,6 +63,16 @@ in
       root.transient = lib.mkDefault true;
       # NixOS sets up /etc itself, in the transient root.
       etc.mount = lib.mkDefault "none";
+      # NixOS mounts /var itself, below.
+      var.mount = lib.mkDefault "none";
+    };
+
+    # Shared by all deployments, on the physical root that composefs-setup-root
+    # mounts at /sysroot.
+    fileSystems."/var" = lib.mkDefault {
+      device = "/sysroot/state/os/default/var";
+      fsType = "none";
+      options = [ "bind" ];
     };
 
     boot.initrd.availableKernelModules = [
