@@ -104,6 +104,12 @@ in
       options = [ "bind" ];
     };
 
+    # The root partition is at /sysroot, not /.
+    systemd.services.systemd-growfs-root.serviceConfig.ExecStart = [
+      ""
+      "${config.systemd.package}/lib/systemd/systemd-growfs /sysroot"
+    ];
+
     boot.initrd.availableKernelModules = [
       "loop"
       "erofs"
