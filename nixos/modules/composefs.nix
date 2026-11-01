@@ -176,7 +176,7 @@ in
         { nativeBuildInputs = [ cfg.package ]; }
         ''
           # The build's filesystem may lack fs-verity, which computing the digest doesn't need.
-          cfsctl --repo repo init --insecure --algorithm ${cfg.algorithm}
+          cfsctl --repo repo init --insecure --algorithm ${cfg.algorithm} --erofs-version 1
           cfsctl --repo repo oci pull oci:${intermediateImage}:latest nixos
           cfsctl --repo repo oci compute-id --bootable nixos > $out
         '';
@@ -219,7 +219,7 @@ in
           umoci gc --layout $out
 
           # Adding the UKI must not change the image's digest.
-          cfsctl --repo repo init --insecure --algorithm ${cfg.algorithm}
+          cfsctl --repo repo init --insecure --algorithm ${cfg.algorithm} --erofs-version 1
           cfsctl --repo repo oci pull oci:$out:latest nixos
           [ "$(cfsctl --repo repo oci compute-id --bootable nixos)" = "$(< ${config.system.build.composefsDigest})" ]
         '';
