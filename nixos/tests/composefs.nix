@@ -70,6 +70,7 @@ in
 
   nodes.machine = {
     boot.composefs.enable = true;
+    environment.systemPackages = [ boot.composefs.package ];
 
     virtualisation = {
       directBoot.enable = false;
@@ -86,6 +87,7 @@ in
   testScript =
     { nodes, ... }:
     ''
+      import json
       import os
       import subprocess
       import tempfile
@@ -116,6 +118,10 @@ in
 
       with subtest("The ESP is mounted at /boot"):
         t.assertEqual(machine.succeed("bootctl --print-esp-path").strip(), "/boot")
+
+      with subtest("The deployed image is labelled with its version"):
+        config = json.loads(machine.succeed("cfsctl --repo /sysroot/composefs oci inspect --config nixos"))
+        t.assertEqual(config["config"]["Labels"]["org.opencontainers.image.version"], "${system.image.version}")
 
       with subtest("The physical root with the repository is at /sysroot"):
         machine.succeed("test -d /sysroot/composefs/images")

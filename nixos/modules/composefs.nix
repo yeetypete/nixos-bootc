@@ -17,7 +17,12 @@ let
     name = "nixos";
     # cfsctl requires these directories to exist when computing a composefs digest.
     extraCommands = "mkdir usr boot sysroot";
-    config.Labels."org.nixos.toplevel" = "${config.system.build.toplevel}";
+    config.Labels = {
+      "org.nixos.toplevel" = "${config.system.build.toplevel}";
+    }
+    // lib.optionalAttrs (config.system.image.version != null) {
+      "org.opencontainers.image.version" = config.system.image.version;
+    };
   };
 
   # intermediate system image without the UKI
