@@ -10,6 +10,11 @@ let
   inherit (config.nodes.machine) boot system systemd;
   inherit (config.node.pkgs.stdenv.hostPlatform) efiArch;
 
+  # The UKI's name without the boot counter, e.g. nixos_1.efi for nixos_1+3.efi.
+  blessedUkiFile =
+    lib.replaceStrings [ "+${toString boot.uki.tries}" ] [ "" ]
+      system.boot.loader.ukiFile;
+
   # This disk layout matches what an installer would create.
   repartDefinitions = hostPkgs.linkFarm "repart.d" (
     lib.mapAttrs (name: (hostPkgs.formats.ini { listsAsDuplicateKeys = true; }).generate name) {
@@ -102,7 +107,12 @@ in
         t.assertEqual(machine.succeed("findmnt --noheadings --output FSTYPE,SOURCE /").split(), ["overlay", "transient"])
 
       with subtest("The UKI name matches the booted entry"):
-        t.assertIn("Current Entry: ${system.boot.loader.ukiFile}", machine.succeed("bootctl status"))
+        t.assertIn("Current Entry: ${blessedUkiFile}", machine.succeed("bootctl status"))
+
+      with subtest("A successful boot removes the UKI's boot counter"):
+        machine.wait_for_unit("systemd-bless-boot.service")
+        machine.succeed("test -e /boot/EFI/Linux/${blessedUkiFile}")
+        machine.fail("test -e /boot/EFI/Linux/${system.boot.loader.ukiFile}")
 
       with subtest("The ESP is mounted at /boot"):
         t.assertEqual(machine.succeed("bootctl --print-esp-path").strip(), "/boot")
