@@ -5,11 +5,9 @@
   nix.enable = false;
   system.switch.enable = false;
 
-  # The partition holding the composefs repository.
-  fileSystems."/" = {
-    device = "/dev/disk/by-label/nixos";
-    fsType = "ext4";
-  };
+  # Find the partition holding the composefs repository by its GPT type.
+  boot.initrd.systemd.root = "gpt-auto";
+  boot.initrd.supportedFilesystems.ext4 = true;
 
   system.stateVersion = "26.05";
 }

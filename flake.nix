@@ -63,7 +63,10 @@
           formatting = (treefmt nixpkgs.legacyPackages.${system}).check self;
           vm-test = nixpkgs.legacyPackages.${system}.testers.runNixOSTest {
             imports = [ ./nixos/tests/composefs.nix ];
-            defaults.imports = [ self.nixosModules.default ];
+            defaults.imports = [
+              self.nixosModules.default
+              ./examples/sealed-root.nix
+            ];
           };
         }
       );
