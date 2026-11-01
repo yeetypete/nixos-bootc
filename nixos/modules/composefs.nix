@@ -92,11 +92,12 @@ in
           OnFailureJobMode = "isolate";
         };
         # composefs-setup-root replaces the physical root at /sysroot with the
-        # image, which NixOS then looks for /etc and /run in.
+        # image, which NixOS then looks for its closure, /etc and /run in.
         requires = [ "sysroot.mount" ];
         after = [ "sysroot.mount" ];
         before = [
           "initrd-root-fs.target"
+          "initrd-find-nixos-closure.service"
           "initrd-find-etc.service"
           "sysroot-etc.mount"
           "sysroot-run.mount"
