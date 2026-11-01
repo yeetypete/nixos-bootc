@@ -103,6 +103,10 @@ in
 
       machine.wait_for_unit("multi-user.target")
 
+      with subtest("The system is running"):
+        _, state = machine.execute("systemctl is-system-running --wait")
+        t.assertEqual(state.strip(), "running")
+
       with subtest("The root is a transient overlay of the composefs image"):
         digest = Path("${system.build.composefsDigest}").read_text().strip()
         t.assertIn(f"composefs.digest=v1-sha512-12:{digest}", machine.succeed("cat /proc/cmdline"))
