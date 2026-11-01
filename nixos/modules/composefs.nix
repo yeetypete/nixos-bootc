@@ -11,6 +11,7 @@ let
   settingsFormat = pkgs.formats.toml { };
 
   inherit (config.system.boot.loader) ukiFile;
+  systemdBootFile = "systemd-boot${pkgs.stdenv.hostPlatform.efiArch}.efi";
 
   # Referencing the toplevel in a label puts its closure in the image.
   image = pkgs.dockerTools.streamLayeredImage {
@@ -177,8 +178,8 @@ in
         ''
       );
 
-    # final system image is created from the intermediate image by injecting the UKI from above,
-    # as an OCI image layout addressed as oci:<path>:latest
+    # final system image is created from the intermediate image by injecting the UKI from above
+    # and systemd-boot, as an OCI image layout addressed as oci:<path>:latest
     system.build.composefsImage =
       pkgs.runCommand
         "nixos-composefs-image-${config.system.nixos.label}-${pkgs.stdenv.hostPlatform.system}"
@@ -191,6 +192,8 @@ in
         ''
           cp -r --no-preserve=mode ${intermediateImage} $out
           install -D -m 0644 ${config.system.build.uki}/${ukiFile} layer/boot/EFI/Linux/${ukiFile}
+          install -D -m 0644 ${config.systemd.package}/lib/systemd/boot/efi/${systemdBootFile} \
+            layer/boot/EFI/systemd/${systemdBootFile}
           tar --create --file layer.tar --directory layer \
             --sort=name --mtime=@1 --owner=0 --group=0 --numeric-owner boot
           umoci raw add-layer --image $out:latest --no-history --compress none layer.tar
