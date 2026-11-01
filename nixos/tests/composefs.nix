@@ -58,7 +58,7 @@ let
 
         mount --mkdir /dev/vda2 /mnt
         cfsctl --repo /mnt/composefs init --algorithm ${boot.composefs.algorithm} --erofs-version 1
-        cfsctl --repo /mnt/composefs oci pull --bootable oci:${system.build.composefsImage}:latest nixos
+        TERM=dumb cfsctl --repo /mnt/composefs oci pull --bootable oci:${system.build.composefsImage}:latest nixos
         # composefs-setup-root requires the deployment's state directory.
         mkdir -p /mnt/state/deploy/$(< ${system.build.composefsDigest})
         umount /mnt

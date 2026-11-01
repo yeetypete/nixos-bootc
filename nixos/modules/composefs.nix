@@ -177,7 +177,8 @@ in
         ''
           # The build's filesystem may lack fs-verity, which computing the digest doesn't need.
           cfsctl --repo repo init --insecure --algorithm ${cfg.algorithm} --erofs-version 1
-          cfsctl --repo repo oci pull oci:${intermediateImage}:latest nixos
+          # TERM=dumb hides cfsctl progress bars.
+          TERM=dumb cfsctl --repo repo oci pull oci:${intermediateImage}:latest nixos
           cfsctl --repo repo oci compute-id --bootable nixos > $out
         '';
 
@@ -220,7 +221,7 @@ in
 
           # Adding the UKI must not change the image's digest.
           cfsctl --repo repo init --insecure --algorithm ${cfg.algorithm} --erofs-version 1
-          cfsctl --repo repo oci pull oci:$out:latest nixos
+          TERM=dumb cfsctl --repo repo oci pull oci:$out:latest nixos
           [ "$(cfsctl --repo repo oci compute-id --bootable nixos)" = "$(< ${config.system.build.composefsDigest})" ]
         '';
   };
