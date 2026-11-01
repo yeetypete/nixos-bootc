@@ -123,6 +123,11 @@ in
         config = json.loads(machine.succeed("cfsctl --repo /sysroot/composefs oci inspect --config nixos"))
         t.assertEqual(config["config"]["Labels"]["org.opencontainers.image.version"], "${system.image.version}")
 
+      with subtest("The deployed image contains the UKI and systemd-boot"):
+        dump = machine.succeed("cfsctl --repo /sysroot/composefs oci dump nixos")
+        t.assertIn("/boot/EFI/Linux/${system.boot.loader.ukiFile} ", dump)
+        t.assertIn("/boot/EFI/systemd/systemd-boot${efiArch}.efi ", dump)
+
       with subtest("The physical root with the repository is at /sysroot"):
         machine.succeed("test -d /sysroot/composefs/images")
 
