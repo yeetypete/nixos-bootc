@@ -6,6 +6,8 @@
   # by default.
   system.image.version = "1";
 
+  boot.uki.tries = 3;
+
   # The system is immutable and must be updated by deploying a new image.
   nix.enable = false;
   system.switch.enable = false;
