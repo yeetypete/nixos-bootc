@@ -20,6 +20,10 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   cargoHash = "sha256-WE4etJ9Jr6/qoygx0rDCjgQbOdsvU/NvjHL2EwByJkE=";
 
+  # Mount sysroot, etc and var into the transient overlay.
+  # TODO: Upstream this.
+  patches = [ ./transient-root.patch ];
+
   nativeBuildInputs = [ pkg-config ];
   buildInputs = [ openssl ];
 

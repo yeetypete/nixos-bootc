@@ -1,0 +1,73 @@
+From 122fad2b8da6faaa57b7c8a4fc2ffc902ff72500 Mon Sep 17 00:00:00 2001
+From: Peter Siegel <psiegel2000@icloud.com>
+Date: Sun, 1 Nov 2026 14:38:03 +0100
+Subject: [PATCH] setup-root: Mount sysroot, etc and var into the transient
+ overlay
+
+With root.transient, /sysroot, /etc and /var were mounted into the
+image underneath the transient overlay, which hid them.
+
+Mount them into the overlay instead. Before kernel 6.15, the overlay is
+stacked onto the image, which is already attached. Otherwise, it
+replaces the detached image as the new root.
+
+Signed-off-by: Peter Siegel <psiegel2000@icloud.com>
+---
+ src/main.rs | 23 +++++++++++++++++------
+ 1 file changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/src/main.rs b/src/main.rs
+index 2d55bda..f3d64f2 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -142,7 +142,8 @@ fn mount_tmpfs() -> Result<OwnedFd> {
+     )?)
+ }
+ 
+-fn overlay_state(base: impl AsFd, state: impl AsFd, source: &str) -> Result<()> {
++/// Create an overlay mount of `state` over `base`, without attaching it.
++fn overlay_mount(base: impl AsFd, state: impl AsFd, source: &str) -> Result<OwnedFd> {
+     // upper must be 0755: the overlayfs merged view inherits permissions from
+     // upperdir, so 0700 would make / (or the mounted subdir) inaccessible to
+     // non-root processes (dbus, anything that drops privileges).
+@@ -157,12 +158,15 @@ fn overlay_state(base: impl AsFd, state: impl AsFd, source: &str) -> Result<()>
+     overlayfs_set_fd(overlayfs.as_fd(), "upperdir", upper.as_fd())?;
+     overlayfs_set_lower_and_data_fds(&overlayfs, base.as_fd(), &[])?;
+     fsconfig_create(overlayfs.as_fd())?;
+-    let fs = fsmount(
++    Ok(fsmount(
+         overlayfs.as_fd(),
+         FsMountFlags::FSMOUNT_CLOEXEC,
+         MountAttrFlags::empty(),
+-    )?;
++    )?)
++}
+ 
++fn overlay_state(base: impl AsFd, state: impl AsFd, source: &str) -> Result<()> {
++    let fs = overlay_mount(&base, state, source)?;
+     Ok(mount_at(fs, base, ".")?)
+ }
+ 
+@@ -385,9 +389,16 @@ fn setup_root(args: Args) -> Result<()> {
+         mount_at(&new_root, CWD, &args.sysroot)?;
+     }
+ 
+-    if config.root.transient {
+-        overlay_transient(&new_root)?;
+-    }
++    // Further mounts go into the transient overlay.
++    let new_root = if config.root.transient {
++        let overlay = overlay_mount(&new_root, prepare_mount(mount_tmpfs()?)?, "transient")?;
++        if cfg!(feature = "pre-6.15") {
++            mount_at(&overlay, &new_root, ".")?;
++        }
++        overlay
++    } else {
++        new_root
++    };
+ 
+     match mount_at(&sysroot_clone, &new_root, "sysroot") {
+         Ok(()) | Err(Errno::NOENT) => {}
+-- 
+2.53.0
+
