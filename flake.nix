@@ -26,7 +26,14 @@
     in
     {
       nixosModules = {
-        composefs = ./nixos/modules/composefs.nix;
+        composefs =
+          { pkgs, ... }:
+          {
+            imports = [ ./nixos/modules/composefs.nix ];
+            boot.composefs.package = lib.mkDefault (
+              pkgs.buildPackages.callPackage ./pkgs/composefs-ctl/package.nix { }
+            );
+          };
         default = self.nixosModules.composefs;
       };
 
