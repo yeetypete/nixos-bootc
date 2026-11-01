@@ -8,6 +8,8 @@
 let
   cfg = config.boot.composefs;
 
+  settingsFormat = pkgs.formats.toml { };
+
   inherit (config.system.boot.loader) ukiFile;
 
   # Referencing the toplevel in a label puts its closure in the image.
@@ -40,9 +42,60 @@ in
         "composefs-ctl"
       ];
     };
+
+    setupRoot = {
+      package = lib.mkPackageOption pkgs "composefs-setup-root" { };
+
+      settings = lib.mkOption {
+        type = lib.types.submodule { freeformType = settingsFormat.type; };
+        default = { };
+        description = ''
+          Configuration for composefs-setup-root,
+          see <https://github.com/containers/composefs-rs> for documentation.
+        '';
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
+    # NixOS mounts /etc itself.
+    boot.composefs.setupRoot.settings.etc.mount = lib.mkDefault "none";
+
+    boot.initrd.systemd = {
+      storePaths = [ (lib.getExe cfg.setupRoot.package) ];
+      contents."/usr/lib/composefs/setup-root-conf.toml".source =
+        settingsFormat.generate "setup-root-conf.toml" cfg.setupRoot.settings;
+
+      services.composefs-setup-root = {
+        description = "Mount the composefs image as the root filesystem";
+        unitConfig = {
+          DefaultDependencies = false;
+          ConditionKernelCommandLine = [
+            "|composefs"
+            "|composefs.digest"
+          ];
+          OnFailure = "emergency.target";
+          OnFailureJobMode = "isolate";
+        };
+        # composefs-setup-root replaces the physical root at /sysroot with the
+        # image, which NixOS then looks for /etc and /run in.
+        requires = [ "sysroot.mount" ];
+        after = [ "sysroot.mount" ];
+        before = [
+          "initrd-root-fs.target"
+          "initrd-find-etc.service"
+          "sysroot-etc.mount"
+          "sysroot-run.mount"
+        ];
+        wantedBy = [ "initrd-root-fs.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart = lib.getExe cfg.setupRoot.package;
+        };
+      };
+    };
+
     # The composefs digest of the image's root filesystem.
     system.build.composefsDigest =
       pkgs.runCommand

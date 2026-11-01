@@ -30,9 +30,10 @@
           { pkgs, ... }:
           {
             imports = [ ./nixos/modules/composefs.nix ];
-            boot.composefs.package = lib.mkDefault (
-              pkgs.buildPackages.callPackage ./pkgs/composefs-ctl/package.nix { }
-            );
+            boot.composefs = {
+              package = lib.mkDefault (pkgs.buildPackages.callPackage ./pkgs/composefs-ctl/package.nix { });
+              setupRoot.package = lib.mkDefault (pkgs.callPackage ./pkgs/composefs-setup-root/package.nix { });
+            };
           };
         default = self.nixosModules.composefs;
       };
