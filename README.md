@@ -47,13 +47,13 @@ boots and updates.
 ```txt
 ESP
 └── EFI/
-    ├── BOOT/BOOTX64.EFI      systemd-boot
-    └── Linux/nixos.efi       UKI, with composefs.digest= in kernel command line
-root partition (e.g. ext4 with fs-verity enabled)
-├── composefs/                composefs repository containing the images and their files
+    ├── BOOT/BOOTX64.EFI           systemd-boot
+    └── Linux/nixos_<version>.efi  UKI, with composefs.digest= in kernel command line
+root partition (e.g. ext4 with fs-verity enabled)  mounted at /sysroot
+├── composefs/                     composefs repository containing the images and their files
 └── state/
-    ├── deploy/<digest>/      per-image /etc and /var state (unused by default)
-    └── os/default/var/       /var, shared by all images
+    ├── deploy/<digest>/           per-image /etc and /var state (unused by default)
+    └── os/default/var/            /var, shared by all images
 ```
 
 ## Usage
