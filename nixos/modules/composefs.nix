@@ -13,6 +13,20 @@ let
   inherit (config.system.boot.loader) ukiFile;
   systemdBootFile = "systemd-boot${pkgs.stdenv.hostPlatform.efiArch}.efi";
 
+  # The binaries in /boot in the image, named as in secureBoot.signatures.
+  bootFiles = {
+    uki = {
+      source = "${config.system.build.uki}/${ukiFile}";
+      target = "EFI/Linux/${ukiFile}";
+    };
+    systemd-boot = {
+      source = "${config.systemd.package}/lib/systemd/boot/efi/${systemdBootFile}";
+      target = "EFI/systemd/${systemdBootFile}";
+    };
+  };
+
+  sbsign = "${pkgs.buildPackages.systemd}/lib/systemd/systemd-sbsign";
+
   # Referencing the toplevel in a label puts its closure in the image.
   image = pkgs.dockerTools.streamLayeredImage {
     name = "nixos";
@@ -60,6 +74,34 @@ in
         It must match the algorithm of the composefs repository the image is
         deployed to (set when creating it with `cfsctl init --algorithm`).
       '';
+    };
+
+    secureBoot = {
+      enable = lib.mkEnableOption "Secure Boot signatures for the UKI and systemd-boot in the image";
+
+      certificate = lib.mkOption {
+        type = lib.types.path;
+        description = "The db certificate the signatures are verified against.";
+      };
+
+      signatures = {
+        uki = lib.mkOption {
+          type = lib.types.path;
+          description = ''
+            Offline signature of the `uki` file in
+            `config.system.build.composefsSignedData`, e.g. from
+            `openssl dgst -sha256 -sign <key>`. See {manpage}`systemd-sbsign(8)`.
+          '';
+        };
+
+        systemd-boot = lib.mkOption {
+          type = lib.types.path;
+          description = ''
+            Offline signature of the `systemd-boot` file in
+            `config.system.build.composefsSignedData`.
+          '';
+        };
+      };
     };
 
     setupRoot = {
@@ -198,6 +240,46 @@ in
         ''
       );
 
+    # The data to sign offline for each binary in the image's /boot, e.g. with:
+    #   openssl dgst -sha256 -sign secure-boot-private-key.pem -out uki.sig uki
+    system.build.composefsSignedData = lib.mkIf cfg.secureBoot.enable (
+      pkgs.runCommand "nixos-composefs-signed-data" { } ''
+        mkdir $out
+        ${lib.concatMapAttrsStringSep "\n" (name: file: ''
+          ${sbsign} sign --certificate=${cfg.secureBoot.certificate} --prepare-offline-signing \
+            --output=$out/${name} ${file.source}
+        '') bootFiles}
+      ''
+    );
+
+    # Assemble the image's /boot from the UKI and systemd-boot, optionally signing them with secureBoot.
+    system.build.composefsBoot =
+      pkgs.runCommand "nixos-composefs-boot"
+        { nativeBuildInputs = lib.optional cfg.secureBoot.enable pkgs.openssl; }
+        (
+          lib.concatMapAttrsStringSep "\n" (
+            name: file:
+            if cfg.secureBoot.enable then
+              let
+                inherit (cfg.secureBoot) certificate;
+                signedData = "${config.system.build.composefsSignedData}/${name}";
+                signature = cfg.secureBoot.signatures.${name};
+              in
+              ''
+                openssl dgst -sha256 -signature ${signature} \
+                  -verify <(openssl x509 -pubkey -noout -in ${certificate}) ${signedData}
+                mkdir -p $(dirname $out/${file.target})
+                ${sbsign} sign --certificate=${certificate} \
+                  --signed-data=${signedData} --signed-data-signature=${signature} \
+                  --output=$out/${file.target} ${file.source}
+              ''
+            else
+              ''
+                install -D -m 0644 ${file.source} $out/${file.target}
+              ''
+          ) bootFiles
+        );
+
     # final system image is created from the intermediate image by injecting the UKI from above
     # and systemd-boot, as an OCI image layout addressed as oci:<path>:latest
     system.build.composefsImage =
@@ -211,10 +293,8 @@ in
         }
         ''
           cp -r --no-preserve=mode ${intermediateImage} $out
-          install -D -m 0644 ${config.system.build.uki}/${ukiFile} layer/boot/EFI/Linux/${ukiFile}
-          install -D -m 0644 ${config.systemd.package}/lib/systemd/boot/efi/${systemdBootFile} \
-            layer/boot/EFI/systemd/${systemdBootFile}
-          tar --create --file layer.tar --directory layer \
+          cp -r --no-preserve=mode ${config.system.build.composefsBoot} boot
+          tar --create --file layer.tar \
             --sort=name --mtime=@1 --owner=0 --group=0 --numeric-owner boot
           umoci raw add-layer --image $out:latest --no-history --compress none layer.tar
           umoci gc --layout $out
