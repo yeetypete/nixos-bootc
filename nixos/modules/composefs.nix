@@ -240,7 +240,7 @@ in
         ''
       );
 
-    # The data to sign offline for each binary in the image's /boot, e.g.:
+    # The data to sign offline for each binary in the image's /boot, e.g. with:
     #   openssl dgst -sha256 -sign secure-boot-private-key.pem -out uki.sig uki
     system.build.composefsSignedData = lib.mkIf cfg.secureBoot.enable (
       pkgs.runCommand "nixos-composefs-signed-data" { } ''
@@ -252,7 +252,7 @@ in
       ''
     );
 
-    # Assemble the image's /boot from the UKI and systemd-boot, signing them with secureBoot.
+    # Assemble the image's /boot from the UKI and systemd-boot, optionally signing them with secureBoot.
     system.build.composefsBoot =
       pkgs.runCommand "nixos-composefs-boot"
         { nativeBuildInputs = lib.optional cfg.secureBoot.enable pkgs.openssl; }
