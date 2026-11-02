@@ -68,6 +68,13 @@
               ./examples/sealed-root.nix
             ];
           };
+          vm-test-secure-boot = nixpkgs.legacyPackages.${system}.testers.runNixOSTest {
+            imports = [ ./nixos/tests/composefs-secure-boot.nix ];
+            defaults.imports = [
+              self.nixosModules.default
+              ./examples/sealed-root.nix
+            ];
+          };
           image = self.checks.${system}.vm-test.nodes.machine.system.build.composefsImage;
         }
       );
