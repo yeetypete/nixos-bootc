@@ -194,6 +194,7 @@ such paths from a directory in `/var`. TODO: Test this.
 ```sh
 nix fmt          # format
 nix flake check  # build and run VM tests
+nix run .#vm     # boot the Secure Boot VM and open a root shell
 ```
 
 ## License

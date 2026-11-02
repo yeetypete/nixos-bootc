@@ -23,6 +23,16 @@
             priority = -1;
           };
         };
+
+      vmTest =
+        system: test:
+        nixpkgs.legacyPackages.${system}.testers.runNixOSTest {
+          imports = [ test ];
+          defaults.imports = [
+            self.nixosModules.default
+            ./examples/sealed-root.nix
+          ];
+        };
     in
     {
       nixosModules = {
@@ -54,6 +64,14 @@
         }
       );
 
+      apps = forAllSystems (system: {
+        vm = {
+          type = "app";
+          program = lib.getExe (vmTest system ./nixos/tests/composefs-shell.nix).driver;
+          meta.description = "Boot the example system with Secure Boot and open a root shell";
+        };
+      });
+
       formatter = forAllSystems (system: treefmt nixpkgs.legacyPackages.${system});
 
       checks = forAllSystems (
@@ -61,20 +79,8 @@
         lib.mapAttrs' (name: lib.nameValuePair "package-${name}") self.packages.${system}
         // {
           formatting = (treefmt nixpkgs.legacyPackages.${system}).check self;
-          vm-test = nixpkgs.legacyPackages.${system}.testers.runNixOSTest {
-            imports = [ ./nixos/tests/composefs.nix ];
-            defaults.imports = [
-              self.nixosModules.default
-              ./examples/sealed-root.nix
-            ];
-          };
-          vm-test-secure-boot = nixpkgs.legacyPackages.${system}.testers.runNixOSTest {
-            imports = [ ./nixos/tests/composefs-secure-boot.nix ];
-            defaults.imports = [
-              self.nixosModules.default
-              ./examples/sealed-root.nix
-            ];
-          };
+          vm-test = vmTest system ./nixos/tests/composefs.nix;
+          vm-test-secure-boot = vmTest system ./nixos/tests/composefs-secure-boot.nix;
           image = self.checks.${system}.vm-test.nodes.machine.system.build.composefsImage;
         }
       );
