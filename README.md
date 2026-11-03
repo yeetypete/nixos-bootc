@@ -186,7 +186,7 @@ such paths from a directory in `/var`. TODO: Test this.
 - [ ] TPM-bound encryption of the root partition.
 - [ ] Immutable `/etc` with `system.etc.overlay` setting.
 - [ ] Fully read-only root without a transient overlay.
-- [ ] Upstream [composefs-setup-root bugfix](https://github.com/yeetypete/composefs-rs/commit/122fad2b8da6faaa57b7c8a4fc2ffc902ff72500).
+- [ ] Upstream [composefs-setup-root patch](pkgs/composefs-setup-root/transient-root.patch).
 - [ ] Upstream to nixpkgs?
 
 ## Development
