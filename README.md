@@ -67,7 +67,7 @@ root partition (e.g. ext4 with fs-verity enabled)  mounted at /sysroot
   outputs =
     { nixpkgs, nixos-composefs, ... }:
     {
-      nixosConfigurations.robot = nixpkgs.lib.nixosSystem {
+      nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
         modules = [
           nixos-composefs.nixosModules.default
           { boot.composefs.enable = true; }
@@ -81,7 +81,7 @@ root partition (e.g. ext4 with fs-verity enabled)  mounted at /sysroot
 Build the sealed image as an OCI image layout:
 
 ```sh
-nix build .#nixosConfigurations.robot.config.system.build.composefsImage
+nix build .#nixosConfigurations.myhost.config.system.build.composefsImage
 ```
 
 See [`examples/sealed-root.nix`](examples/sealed-root.nix) for a minimal
@@ -111,7 +111,7 @@ made outside of Nix with
 2. Build the data to sign:
 
    ```sh
-   nix build .#nixosConfigurations.robot.config.system.build.composefsSignedData
+   nix build .#nixosConfigurations.myhost.config.system.build.composefsSignedData
    ```
 
 3. Sign it, e.g. with an HSM, a cloud KMS or OpenSSL:
