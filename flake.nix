@@ -70,6 +70,32 @@
           program = lib.getExe (vmTest system ./nixos/tests/composefs-shell.nix).driver;
           meta.description = "Boot the example system with Secure Boot and open a root shell";
         };
+        dive =
+          let
+            pkgs = nixpkgs.legacyPackages.${system};
+            image = self.checks.${system}.image;
+            # dive cannot read an OCI image layout, only a Docker archive.
+            archive =
+              pkgs.runCommand "${image.name}-docker-archive.tar"
+                {
+                  nativeBuildInputs = [ pkgs.skopeo ];
+                }
+                ''
+                  HOME=$TMPDIR skopeo --insecure-policy --tmpdir $TMPDIR copy \
+                    oci:${image}:latest docker-archive:$out:nixos:latest
+                '';
+          in
+          {
+            type = "app";
+            program = lib.getExe (
+              pkgs.writeShellApplication {
+                name = "dive-image";
+                runtimeInputs = [ pkgs.dive ];
+                text = ''exec dive --source docker-archive ${archive} "$@"'';
+              }
+            );
+            meta.description = "Inspect the example composefs image with dive";
+          };
       });
 
       formatter = forAllSystems (system: treefmt nixpkgs.legacyPackages.${system});
