@@ -195,6 +195,7 @@ such paths from a directory in `/var`. TODO: Test this.
 nix fmt          # format
 nix flake check  # build and run VM tests
 nix run .#vm     # boot the Secure Boot VM and open a root shell
+nix run .#dive   # inspect the example image's layers with dive
 ```
 
 ## License
