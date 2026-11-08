@@ -88,6 +88,8 @@ let
       mkdir -p $dir
       cp ${signed "systemd-boot"} $dir/${systemdBootFile}.signed
       chmod -R a-w .${config.systemd.package}
+    ''
+    + lib.optionalString (cfg.secureBoot.enable && cfg.secureBoot.enrollKeys != null) ''
       mkdir -p usr/lib/bootc/install/secureboot-keys
       cp -r ${cfg.secureBoot.enrollKeys} usr/lib/bootc/install/secureboot-keys/auto
     '';
@@ -153,7 +155,8 @@ in
       };
 
       enrollKeys = lib.mkOption {
-        type = lib.types.path;
+        type = lib.types.nullOr lib.types.path;
+        default = null;
         description = "A directory of PK, KEK and db .auth files for systemd-boot to enroll.";
       };
 

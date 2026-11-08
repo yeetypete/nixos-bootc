@@ -1,9 +1,10 @@
-# nixos-composefs
+# nixos-bootc
 
-Boot NixOS from sealed composefs images.
+Boot NixOS from sealed [bootc](https://github.com/bootc-dev/bootc) images.
 
-nixos-composefs builds your NixOS system into a sealed image and mounts it as
-its root filesystem with [composefs](https://github.com/containers/composefs-rs).
+nixos-bootc builds your NixOS system into a sealed bootc image, which bootc
+installs, updates and boots with its
+[composefs backend](https://bootc.dev/bootc/bootc-composefs.html).
 Combined with
 [fs-verity](https://www.kernel.org/doc/html/latest/filesystems/fsverity.html)
 and a digest embedded in the UKI, this provides cryptographic verification of
@@ -17,9 +18,8 @@ Advantages over
   be changed after partitioning, limited only by free disk space.
 - Deduplication: files with identical content across images share a single
   copy on disk and in the page cache.
-- Switch or roll back to any number of generations, not only the previous
-  one.
-- NixOS systems are represented as standard OCI images. Existing tooling and
+- Installs, updates and rollback are handled by bootc.
+- NixOS systems are represented as OCI images. Existing tooling and
   infrastructure for container images, such as registries, signing and
   transports, can all be leveraged.
 
@@ -30,29 +30,27 @@ Advantages over
 
 At build time, the module:
 
-1. Builds the system's closure as an OCI image.
-2. Computes its composefs digest.
+1. Builds the system's closure as a bootc image.
+2. Computes the image's digest.
 3. Builds a UKI whose kernel command line holds the digest.
-4. Seals the image by adding the UKI and systemd-boot to `/boot`, optionally
-   signed for Secure Boot. The result is `system.build.composefsImage`, an OCI
-   image layout.
+4. Seals the image by adding the UKI to `/boot`, optionally signed for Secure
+   Boot. The result is `system.build.bootcImage`, an OCI image layout.
 
-At boot, systemd-boot starts the UKI. In the initrd,
-[composefs-setup-root](pkgs/composefs-setup-root) mounts the image matching the
-UKI's digest as the root filesystem, overlaid with a tmpfs. The partition
-holding the composefs repository is mounted at `/sysroot`. This is where
-updates add new images, and where `/var` preserves application state across
-boots and updates.
+`bootc install` then deploys the image to a disk. At boot, systemd-boot starts
+the UKI. In the initrd, `bootc-root-setup.service` mounts the image matching
+the UKI's digest as the root filesystem, overlaid with a tmpfs. The physical
+root is mounted read-only at `/sysroot`. This is where bootc adds new images,
+and where `/var` preserves application state across boots and updates.
 
 ```txt
 ESP
 └── EFI/
     ├── BOOT/BOOTX64.EFI           systemd-boot
-    └── Linux/nixos_<version>.efi  UKI, with composefs.digest= in kernel command line
+    └── Linux/bootc/bootc_composefs-<digest>.efi  UKI, with composefs.digest= in kernel command line
 root partition (e.g. ext4 with fs-verity enabled)  mounted at /sysroot
-├── composefs/                     composefs repository containing the images and their files
+├── composefs/                     the images and their files
 └── state/
-    ├── deploy/<digest>/           per-image /etc and /var state (unused by default)
+    ├── deploy/<digest>/           per-image state: /etc (unused by default), var -> ../../os/default/var
     └── os/default/var/            /var, shared by all images
 ```
 
@@ -61,16 +59,16 @@ root partition (e.g. ext4 with fs-verity enabled)  mounted at /sysroot
 ```nix
 {
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-  inputs.nixos-composefs.url = "github:yeetypete/nixos-composefs";
-  inputs.nixos-composefs.inputs.nixpkgs.follows = "nixpkgs";
+  inputs.nixos-bootc.url = "github:yeetypete/nixos-bootc";
+  inputs.nixos-bootc.inputs.nixpkgs.follows = "nixpkgs";
 
   outputs =
-    { nixpkgs, nixos-composefs, ... }:
+    { nixpkgs, nixos-bootc, ... }:
     {
       nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
         modules = [
-          nixos-composefs.nixosModules.default
-          { boot.composefs.enable = true; }
+          nixos-bootc.nixosModules.default
+          { boot.bootc.enable = true; }
           ./configuration.nix
         ];
       };
@@ -81,55 +79,35 @@ root partition (e.g. ext4 with fs-verity enabled)  mounted at /sysroot
 Build the sealed image as an OCI image layout:
 
 ```sh
-nix build .#nixosConfigurations.myhost.config.system.build.composefsImage
+nix build .#nixosConfigurations.myhost.config.system.build.bootcImage
 ```
 
 See [`examples/sealed-root.nix`](examples/sealed-root.nix) for a minimal
 working configuration.
 
+Install it on a disk with the image's bootc. The host needs
+`/etc/containers/policy.json`, e.g. from `virtualisation.containers.enable`.
+
+```sh
+sudo nix run .#nixosConfigurations.myhost.config.boot.bootc.package -- \
+  install to-disk --source-imgref oci:./result:latest --composefs-backend \
+  --filesystem ext4 --bootloader systemd --generic-image --wipe /dev/sdX
+```
+
+For later updates, push a new image to a registry and switch to it on the
+installed system:
+
+```sh
+skopeo copy oci:./result:latest docker://registry.example.com/os:latest
+bootc switch registry.example.com/os:latest
+```
+
 ## Secure Boot
 
 The UKI and systemd-boot can be signed for Secure Boot without the private key
-in the build. The build prepares the data to sign, and attaches signatures
-made outside of Nix with
-[systemd-sbsign](https://www.freedesktop.org/software/systemd/man/latest/systemd-sbsign.html):
-
-1. Enable Secure Boot, setting the paths to the db certificate and to where
-   the signatures will be after signing (step 3):
-
-   ```nix
-   boot.composefs.secureBoot = {
-     enable = true;
-     certificate = ./secureboot/db.pem;
-     signatures = {
-       uki = ./secureboot/uki.sig;
-       systemd-boot = ./secureboot/systemd-boot.sig;
-     };
-   };
-   ```
-
-2. Build the data to sign:
-
-   ```sh
-   nix build .#nixosConfigurations.myhost.config.system.build.composefsSignedData
-   ```
-
-3. Sign it, e.g. with an HSM, a cloud KMS or OpenSSL:
-
-   ```sh
-   openssl dgst -sha256 -sign db.key -out secureboot/uki.sig result/uki
-   openssl dgst -sha256 -sign db.key -out secureboot/systemd-boot.sig result/systemd-boot
-   ```
-
-4. Build the image. The signatures are first verified and then attached to the binaries.
-
-Notes:
-
-- `db.key` is the private key. It is only needed for signing and stays outside
-  of Nix.
-- The db certificate must be enrolled in the firmware, e.g. by systemd-boot
-  (see
-  [loader.conf(5)](https://www.freedesktop.org/software/systemd/man/latest/loader.conf.html)).
+in the build, using `boot.bootc.secureBoot`. See
+[`nixos/tests/bootc/secure-boot.nix`](nixos/tests/bootc/secure-boot.nix) for an
+example. TODO: document this.
 
 > [!WARNING]
 > Enrolling your keys replaces existing keys in the UEFI firmware. Without
@@ -177,16 +155,15 @@ such paths from a directory in `/var`. TODO: Test this.
 ## Roadmap
 
 - [x] Sealed image, digest and UKI.
-- [x] Transient root over the composefs image with persistent `/var`.
+- [x] Transient root over the image with persistent `/var`.
 - [x] VM test booting a deployed disk.
 - [x] Offline Secure Boot signing of the UKI and systemd-boot.
 - [ ] Enroll Microsoft's certificates along with the db certificate.
-- [ ] Rust update client: deploy images, boot counting with [systemd-boot](https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT/), rollback.
+- [ ] Automatic rollback: bootc does not support [boot counting](https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT/) with the composefs backend yet.
 - [ ] Create flashable disk images with [`image.repart`](https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/image/repart.nix).
 - [ ] TPM-bound encryption of the root partition.
 - [ ] Immutable `/etc` with `system.etc.overlay` setting.
 - [ ] Fully read-only root without a transient overlay.
-- [ ] Upstream [composefs-setup-root patch](pkgs/composefs-setup-root/transient-root.patch).
 - [ ] Upstream to nixpkgs?
 
 ## Development
@@ -200,4 +177,4 @@ nix run .#dive   # inspect the example image's layers with dive
 
 ## License
 
-`nixos-composefs` is released under the [MIT License](LICENSE).
+`nixos-bootc` is released under the [MIT License](LICENSE).
