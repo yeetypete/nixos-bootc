@@ -1,5 +1,5 @@
 {
-  description = "Boot NixOS from sealed composefs images";
+  description = "Boot NixOS from sealed bootc images";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -23,32 +23,14 @@
             priority = -1;
           };
         };
-
-      vmTest =
-        system: test:
-        nixpkgs.legacyPackages.${system}.testers.runNixOSTest {
-          imports = [ test ];
-          defaults.imports = [
-            self.nixosModules.default
-            ./examples/sealed-root.nix
-          ];
-        };
     in
     {
       nixosModules = {
-        composefs =
-          { pkgs, ... }:
-          {
-            imports = [ ./nixos/modules/composefs.nix ];
-            boot.composefs = {
-              package = lib.mkDefault (pkgs.buildPackages.callPackage ./pkgs/composefs-ctl/package.nix { });
-              setupRoot.package = lib.mkDefault (pkgs.callPackage ./pkgs/composefs-setup-root/package.nix { });
-            };
-          };
-        default = self.nixosModules.composefs;
+        bootc = ./nixos/modules/bootc.nix;
+        default = self.nixosModules.bootc;
       };
 
-      nixosConfigurations.example = nixpkgs.lib.nixosSystem {
+      nixosConfigurations.example = lib.nixosSystem {
         modules = [
           self.nixosModules.default
           ./examples/sealed-root.nix
@@ -67,7 +49,9 @@
       apps = forAllSystems (system: {
         vm = {
           type = "app";
-          program = lib.getExe (vmTest system ./nixos/tests/composefs-shell.nix).driver;
+          program =
+            lib.getExe
+              (nixpkgs.legacyPackages.${system}.testers.runNixOSTest ./nixos/tests/bootc/shell.nix).driver;
           meta.description = "Boot the example system with Secure Boot and open a root shell";
         };
         dive =
@@ -102,12 +86,15 @@
 
       checks = forAllSystems (
         system:
+        let
+          inherit (nixpkgs.legacyPackages.${system}.testers) runNixOSTest;
+        in
         lib.mapAttrs' (name: lib.nameValuePair "package-${name}") self.packages.${system}
         // {
           formatting = (treefmt nixpkgs.legacyPackages.${system}).check self;
-          vm-test = vmTest system ./nixos/tests/composefs.nix;
-          vm-test-secure-boot = vmTest system ./nixos/tests/composefs-secure-boot.nix;
-          image = self.checks.${system}.vm-test.nodes.machine.system.build.composefsImage;
+          vm-test = runNixOSTest ./nixos/tests/bootc/basic.nix;
+          vm-test-secure-boot = runNixOSTest ./nixos/tests/bootc/secure-boot.nix;
+          image = self.checks.${system}.vm-test.nodes.machine.system.build.bootcImage;
         }
       );
     };
