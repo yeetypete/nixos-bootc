@@ -18,7 +18,7 @@ runCommand "secure-boot-test-keys"
     cd $out
     uuid=$(systemd-id128 new --uuid)
     for key in PK KEK db; do
-      openssl req -new -x509 -nodes -days 3650 -subj "/CN=nixos-composefs test ''${key}/" \
+      openssl req -new -x509 -nodes -days 3650 -subj "/CN=nixos-bootc test ''${key}/" \
         -keyout "''${key}.key" -out "''${key}.pem"
       openssl x509 -outform DER -in "''${key}.pem" -out "''${key}.der"
       sbsiglist --owner "''${uuid}" --type x509 --output "''${key}.esl" "''${key}.der"
