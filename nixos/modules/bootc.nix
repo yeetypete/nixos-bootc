@@ -250,7 +250,7 @@ in
           "sysroot-etc.mount"
           "sysroot-run.mount"
         ];
-        wantedBy = [ "initrd-root-fs.target" ];
+        requiredBy = [ "initrd-root-fs.target" ];
       };
     };
 

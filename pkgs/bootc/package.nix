@@ -15,18 +15,17 @@
 
 bootc.overrideAttrs (
   finalAttrs: previousAttrs: {
-    # TODO: Switch to the next tagged release.
-    version = "1.17.4-unstable-2026-11-06";
+    version = "1.17.5";
 
     src = fetchFromGitHub {
       owner = "bootc-dev";
       repo = "bootc";
-      rev = "00574d53bd49525cf1f6a58aa0ac259eaef443b3";
-      hash = "sha256-xuAhJunCU7uOPVmvplAVYkfWF40nlB6vQYqCETG9X2k=";
+      tag = "v${finalAttrs.version}";
+      hash = "sha256-m69PIJazvUHPbkCX59XCJw9OouyBiV0xSus1xqeAEVk=";
     };
     cargoDeps = rustPlatform.fetchCargoVendor {
       inherit (finalAttrs) src;
-      hash = "sha256-IyiYtqiopvIinkQs0pUanAUj7vwqD4duRxMghYSbxAU=";
+      hash = "sha256-sQiWVw2ZbNP7WS1OrQxNwsbyJOajKw+aNlrcITSMECY=";
     };
     # nixpkgs' patch for 1.6.0 is already in this version.
     patches = [ ];
