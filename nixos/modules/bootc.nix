@@ -141,8 +141,12 @@ in
 
     buildPackage = lib.mkOption {
       type = lib.types.package;
-      default = pkgs.buildPackages.callPackage ../../pkgs/bootc/package.nix { };
-      defaultText = lib.literalMD "bootc for the build platform";
+      default =
+        if pkgs.stdenv.buildPlatform.canExecute pkgs.stdenv.hostPlatform then
+          cfg.package
+        else
+          pkgs.buildPackages.callPackage ../../pkgs/bootc/package.nix { };
+      defaultText = lib.literalMD "`boot.bootc.package` when executable on the build platform, otherwise bootc for the build platform";
       description = "The bootc package used at build time to compute the image's composefs digest.";
     };
 
